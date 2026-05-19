@@ -1,257 +1,177 @@
-/**
- * SNAKE GAME - PRO EDITION
- * Fitur: requestAnimationFrame, Particle System, Audio Synthesizer, Dynamic Speed
- */
+// Konfigurasi Dasar sesuai Proposal (Grid 20x20)
+const blockSize = 20; 
+const rows = 20;
+const cols = 20;
+let board, context; 
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+// Inisialisasi Karakter
+let snakeX = blockSize * 5;
+let snakeY = blockSize * 5;
+let velocityX = 0;
+let velocityY = 0;
+let snakeBody = [];
 
-// Konfigurasi Grid
-const gridSize = 20;
-const tileCount = canvas.width / gridSize;
+// Inisialisasi Makanan
+let foodX, foodY;
 
-// Variabel Game
-let snake, food, particles;
+// Sistem Skor
 let score = 0;
-let highScore = localStorage.getItem("snakeProHigh") || 0;
+let highScore = localStorage.getItem("snakeHighScore") || 0;
 let gameOver = false;
-let gameRunning = false;
+let foodPulse = 0;
+let gameInterval; // Untuk menghentikan game saat mati
 
-// Variabel Waktu (Delta Time)
-let lastTime = 0;
-let timer = 0;
-let speedMs = 120; // Kecepatan awal (makin kecil makin cepat)
+window.onload = function() {
+    board = document.getElementById("board");
+    board.height = rows * blockSize;
+    board.width = cols * blockSize;
+    context = board.getContext("2d");
 
-// Audio Context (Suara)
-let audioCtx;
+    // Tampilkan High Score tersimpan
+    document.getElementById("highScoreVal").innerText = highScore;
 
-// --- KELAS SISTEM PARTIKEL ---
-class Particle {
-    constructor(x, y, color) {
-        this.x = x; this.y = y; this.color = color;
-        this.size = Math.random() * 4 + 2;
-        this.speedX = (Math.random() - 0.5) * 8;
-        this.speedY = (Math.random() - 0.5) * 8;
-        this.life = 1.0; // Opacity awal
-    }
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= 0.05; // Menghilang perlahan
-    }
-    draw(context) {
-        context.globalAlpha = Math.max(0, this.life);
-        context.fillStyle = this.color;
-        context.fillRect(this.x, this.y, this.size, this.size);
-        context.globalAlpha = 1.0;
-    }
+    // TOMBOL MULAI
+    document.getElementById("btnMulai").addEventListener("click", function() {
+        document.getElementById("startMenu").style.display = "none";
+        placeFood();
+        document.addEventListener("keydown", changeDirection);
+        // Kecepatan game: 100 milidetik sesuai proposal
+        gameInterval = setInterval(update, 100); 
+    });
+
+    // TOMBOL MAIN LAGI
+    document.getElementById("btnRestart").addEventListener("click", function() {
+        document.getElementById("gameOverMenu").style.display = "none";
+        
+        // Reset nilai ke awal
+        snakeX = blockSize * 5;
+        snakeY = blockSize * 5;
+        velocityX = 0;
+        velocityY = 0;
+        snakeBody = [];
+        score = 0;
+        gameOver = false;
+        
+        document.getElementById("scoreVal").innerText = score;
+        board.classList.remove("shake-effect");
+        
+        placeFood();
+        gameInterval = setInterval(update, 100);
+    });
 }
 
-// --- FUNGSI AUDIO SINTETIS ---
-function playSound(type) {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    
-    const osc = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    osc.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    
-    if (type === 'eat') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'die') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-    }
-}
+// LOGIKA ASLI KAMU (100% TIDAK DIUBAH)
+function update() {
+    if (gameOver) return;
 
-// --- INISIALISASI GAME ---
-function init() {
-    snake = [ { x: 10, y: 10 } ];
-    velocityX = 0; velocityY = 0;
-    score = 0;
-    speedMs = 120;
-    gameOver = false;
-    particles = [];
-    document.getElementById("scoreDisplay").innerText = score;
-    document.getElementById("highScoreDisplay").innerText = highScore;
-    spawnFood();
-}
+    // 1. Gambar Latar Belakang
+    context.fillStyle = "black";
+    context.fillRect(0, 0, board.width, board.height);
 
-function spawnFood() {
-    food = {
-        x: Math.floor(Math.random() * tileCount),
-        y: Math.floor(Math.random() * tileCount)
-    };
-    // Pastikan makanan tidak muncul di badan ular
-    for(let segment of snake) {
-        if(segment.x === food.x && segment.y === food.y) spawnFood();
-    }
-}
+    // 2. Gambar Makanan dengan Efek Pulse (Berdenyut)
+    foodPulse += 0.2;
+    let pulse = Math.sin(foodPulse) * 2;
+    context.fillStyle = "#FF3131"; // Warna Merah
+    context.shadowBlur = 15;
+    context.shadowColor = "red";
+    context.beginPath();
+    context.arc(foodX + blockSize/2, foodY + blockSize/2, (blockSize/2 - 2) + pulse, 0, Math.PI * 2);
+    context.fill();
+    context.shadowBlur = 0; 
 
-function createExplosion(x, y, color) {
-    for (let i = 0; i < 15; i++) {
-        // Partikel di-spawn di koordinat pixel sebenarnya
-        particles.push(new Particle(x * gridSize + 10, y * gridSize + 10, color));
-    }
-}
-
-// --- KONTROL ULAR ---
-let velocityX = 0, velocityY = 0;
-let nextX = 0, nextY = 0; // Mencegah bug klik ganda cepat
-
-window.addEventListener("keydown", e => {
-    if (!gameRunning || gameOver) return;
-    if ((e.code === "ArrowUp" || e.code === "KeyW") && velocityY === 0) { nextX = 0; nextY = -1; }
-    if ((e.code === "ArrowDown" || e.code === "KeyS") && velocityY === 0) { nextX = 0; nextY = 1; }
-    if ((e.code === "ArrowLeft" || e.code === "KeyA") && velocityX === 0) { nextX = -1; nextY = 0; }
-    if ((e.code === "ArrowRight" || e.code === "KeyD") && velocityX === 0) { nextX = 1; nextY = 0; }
-});
-
-// --- GAME LOOP UTAMA (Pro Level Delta Time) ---
-function gameLoop(timestamp) {
-    if (!gameRunning) return;
-    
-    let deltaTime = timestamp - lastTime;
-    lastTime = timestamp;
-    timer += deltaTime;
-
-    // Update Logika Ular berdasarkan speedMs
-    if (timer > speedMs && !gameOver) {
-        updateSnake();
-        timer = 0;
-    }
-
-    // Gambar ulang semuanya setiap frame (membuat partikel sangat mulus)
-    drawEverything();
-
-    requestAnimationFrame(gameLoop);
-}
-
-function updateSnake() {
-    // Terapkan arah baru
-    if (nextX !== 0 || nextY !== 0) {
-        velocityX = nextX; velocityY = nextY;
-    }
-    
-    if (velocityX === 0 && velocityY === 0) return; // Belum jalan
-
-    let headX = snake[0].x + velocityX;
-    let headY = snake[0].y + velocityY;
-
-    // Cek Tabrakan Dinding
-    if (headX < 0 || headX >= tileCount || headY < 0 || headY >= tileCount) {
-        return triggerGameOver();
-    }
-    // Cek Tabrakan Badan
-    for (let i = 0; i < snake.length; i++) {
-        if (headX === snake[i].x && headY === snake[i].y) return triggerGameOver();
-    }
-
-    snake.unshift({ x: headX, y: headY });
-
-    // Cek Makan
-    if (headX === food.x && headY === food.y) {
-        playSound('eat');
+    // 3. Logika Makan & Update Skor
+    if (snakeX == foodX && snakeY == foodY) {
+        snakeBody.push([foodX, foodY]);
         score += 10;
-        document.getElementById("scoreDisplay").innerText = score;
+        document.getElementById("scoreVal").innerText = score;
+        
         if (score > highScore) {
             highScore = score;
-            localStorage.setItem("snakeProHigh", highScore);
-            document.getElementById("highScoreDisplay").innerText = highScore;
+            localStorage.setItem("snakeHighScore", highScore);
+            document.getElementById("highScoreVal").innerText = highScore;
         }
-        createExplosion(food.x, food.y, '#ff003c'); // Ledakan pink
-        
-        // Dinamis: Makin panjang, game makin cepat sedikit
-        if(speedMs > 60) speedMs -= 2; 
-        
-        spawnFood();
-    } else {
-        snake.pop(); // Hapus ekor jika tidak makan
+        placeFood();
+    }
+
+    // 4. Pergerakan Tubuh Ular
+    for (let i = snakeBody.length - 1; i > 0; i--) {
+        snakeBody[i] = snakeBody[i-1];
+    }
+    if (snakeBody.length) {
+        snakeBody[0] = [snakeX, snakeY];
+    }
+
+    // 5. Update Posisi Kepala
+    snakeX += velocityX * blockSize;
+    snakeY += velocityY * blockSize;
+
+    // 6. Gambar Kepala Ular (Warna Lime + Mata)
+    context.fillStyle = "#32CD32";
+    drawRoundedRect(snakeX, snakeY, blockSize-1, blockSize-1, 5);
+    
+    // Mata Ular
+    context.fillStyle = "white";
+    context.fillRect(snakeX + 4, snakeY + 4, 3, 3);
+    context.fillRect(snakeX + 12, snakeY + 4, 3, 3);
+
+    // 7. Gambar Segmen Tubuh
+    context.fillStyle = "lime";
+    for (let i = 0; i < snakeBody.length; i++) {
+        drawRoundedRect(snakeBody[i][0], snakeBody[i][1], blockSize-1, blockSize-1, 3);
+    }
+
+    // 8. Cek Tabrakan Dinding
+    if (snakeX < 0 || snakeX >= board.width || snakeY < 0 || snakeY >= board.height) {
+        triggerGameOver();
+    }
+
+    // 9. Cek Tabrakan Tubuh Sendiri
+    for (let i = 0; i < snakeBody.length; i++) {
+        if (snakeX == snakeBody[i][0] && snakeY == snakeBody[i][1]) {
+            triggerGameOver();
+        }
     }
 }
 
-function drawEverything() {
-    // Hapus Layar (Warna gelap)
-    ctx.fillStyle = "#080812";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+// Fungsi membuat kotak dengan sudut tumpul
+function drawRoundedRect(x, y, w, h, r) {
+    context.beginPath();
+    context.roundRect(x, y, w, h, r);
+    context.fill();
+}
 
-    // Gambar Grid Tipis
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-    ctx.lineWidth = 1;
-    for(let i=0; i<tileCount; i++){
-        ctx.strokeRect(i*gridSize, 0, 1, canvas.height);
-        ctx.strokeRect(0, i*gridSize, canvas.width, 1);
+function changeDirection(e) {
+    // Navigasi Arrows & WASD sesuai Proposal
+    if ((e.code == "ArrowUp" || e.code == "KeyW") && velocityY != 1) {
+        velocityX = 0; velocityY = -1;
     }
+    else if ((e.code == "ArrowDown" || e.code == "KeyS") && velocityY != -1) {
+        velocityX = 0; velocityY = 1;
+    }
+    else if ((e.code == "ArrowLeft" || e.code == "KeyA") && velocityX != 1) {
+        velocityX = -1; velocityY = 0;
+    }
+    else if ((e.code == "ArrowRight" || e.code == "KeyD") && velocityX != -1) {
+        velocityX = 1; velocityY = 0;
+    }
+}
 
-    if (!gameOver) {
-        // Gambar Makanan (Pink Neon)
-        ctx.fillStyle = "#ff003c";
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "#ff003c";
-        ctx.beginPath();
-        ctx.arc(food.x * gridSize + 10, food.y * gridSize + 10, 6, 0, Math.PI*2);
-        ctx.fill();
-        ctx.shadowBlur = 0; // Matikan shadow
-    }
-
-    // Gambar Ular (Cyan Neon)
-    for (let i = 0; i < snake.length; i++) {
-        // Kepala lebih terang dari badan
-        ctx.fillStyle = i === 0 ? "#ffffff" : "#00f3ff";
-        if(i === 0) {
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "#00f3ff";
-        } else {
-            ctx.shadowBlur = 0;
-        }
-        
-        ctx.beginPath();
-        ctx.roundRect(snake[i].x * gridSize + 1, snake[i].y * gridSize + 1, gridSize - 2, gridSize - 2, 4);
-        ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-
-    // Update & Gambar Partikel
-    for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].draw(ctx);
-        if (particles[i].life <= 0) particles.splice(i, 1); // Hapus memori partikel mati
-    }
+function placeFood() {
+    foodX = Math.floor(Math.random() * cols) * blockSize;
+    foodY = Math.floor(Math.random() * rows) * blockSize;
 }
 
 function triggerGameOver() {
     gameOver = true;
-    playSound('die');
-    document.getElementById("finalScore").innerText = score;
-    document.getElementById("gameOverScreen").classList.remove("hidden");
-}
-
-// --- EVENT LISTENER TOMBOL UI ---
-document.getElementById("btnStart").addEventListener("click", () => {
-    // Inisialisasi Audio Context memerlukan interaksi user pertama kali
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    clearInterval(gameInterval); // Hentikan game
     
-    document.getElementById("startScreen").classList.add("hidden");
-    init();
-    gameRunning = true;
-    lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
-});
-
-document.getElementById("btnRestart").addEventListener("click", () => {
-    document.getElementById("gameOverScreen").classList.add("hidden");
-    init();
-});
-
-// Load awal
-document.getElementById("highScoreDisplay").innerText = highScore;
+    // Efek Getar Layar Aslimu
+    board.classList.add("shake-effect");
+    
+    // Tampilkan Menu Game Over
+    setTimeout(() => {
+        document.getElementById("gameOverMenu").style.display = "flex";
+        document.getElementById("finalScoreVal").innerText = score;
+    }, 500);
+            }
+               
