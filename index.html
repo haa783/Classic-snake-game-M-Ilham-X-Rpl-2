@@ -3,50 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Snake - M. Ilham</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <title>Snake Game - M. Ilham</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="game-container">
-        <header>
-            <h1 class="logo">NEON<span class="highlight">SNAKE</span></h1>
-            <div class="scores">
-                <div class="score-box">
-                    <span>SKOR</span>
-                    <strong id="scoreDisplay">0</strong>
-                </div>
-                <div class="score-box best">
-                    <span>TERBAIK</span>
-                    <strong id="highScoreDisplay">0</strong>
-                </div>
-            </div>
-        </header>
-
-        <div class="canvas-wrapper">
-            <canvas id="gameCanvas" width="400" height="400"></canvas>
-            
-            <div id="startScreen" class="overlay">
-                <div class="overlay-content">
-                    <h2>SYSTEM <span class="highlight">READY</span></h2>
-                    <p class="author">Developed by M. Ilham | XRPL2</p>
-                    <button id="btnStart" class="btn-neon">INISIALISASI GAME</button>
-                </div>
-            </div>
-
-            <div id="gameOverScreen" class="overlay hidden">
-                <div class="overlay-content error-glitch">
-                    <h2 class="text-danger">SYSTEM FAILURE</h2>
-                    <p>Skor Akhir: <span id="finalScore" class="highlight">0</span></p>
-                    <button id="btnRestart" class="btn-neon btn-danger">REBOOT SYSTEM</button>
-                </div>
-            </div>
+    <div id="startMenu" class="overlay">
+        <div class="menu-box">
+            <h1>SNAKE GAME</h1>
+            <p>Project by M. Ilham - XRPL2</p>
+            <button id="btnMulai" class="btn">MULAI GAME</button>
         </div>
+    </div>
 
-        <footer>
-            Gunakan tombol <b>W, A, S, D</b> atau <b>Panah</b> untuk mengendalikan arah.
-        </footer>
+    <h1>SNAKE</h1>
+    <div class="score-container">
+        <div>Skor: <span id="scoreVal" class="text-white">0</span></div>
+        <div id="highScoreLabel">Tertinggi: <span id="highScoreVal" class="text-white">0</span></div>
+    </div>
+    
+    <canvas id="board"></canvas>
+    
+    <div class="controls-hint">Gunakan W, A, S, D atau Tombol Panah untuk bergerak</div>
+
+    <div id="gameOverMenu" class="overlay" style="display: none;">
+        <div class="menu-box border-red">
+            <h1 class="game-over-text">GAME OVER</h1>
+            <p style="font-size: 20px;">Skor Akhir</p>
+            <h2 id="finalScoreVal" class="final-score">0</h2>
+            <button id="btnRestart" class="btn">MAIN LAGI</button>
+        </div>
     </div>
 
     <script src="script.js"></script>
